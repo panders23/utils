@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+kded4 \
+	--check
+
+	#--nofork \
+	#--waitforwm
+	#--nocrashhandler
+sleep 1
+qdbus org.kde.kded /kded loadModule kdeconnect
