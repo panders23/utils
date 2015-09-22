@@ -1,0 +1,174 @@
+#!/usr/bin/env bash
+
+declare -a CONFIG_WINDOW_PID_FUNCTIONS
+declare -a CONFIG_PROCESS_CHILD_FUNCTIONS
+
+CONFIG_APPEND_PATH=0
+CONFIG_DONT_IGNORE_WINDOW_PID=0
+CONFIG_DO_CHDIR_WINDOW_CWD=1
+
+# ---
+
+window_get_pid_xdotool_focus() {
+    xdotool getwindowfocus getwindowpid
+}
+CONFIG_WINDOW_PID_FUNCTIONS+=("window_get_pid_xdotool_focus")
+
+window_get_pid_xdotool_active() {
+    xdotool getactivewindow getwindowpid
+}
+CONFIG_WINDOW_PID_FUNCTIONS+=("window_get_pid_xdotool_active")
+
+window_get_pid_xprop_active() {
+    xprop -id $(xprop -root _NET_ACTIVE_WINDOW | cut -f 5 -d ' ') _NET_WM_PID | cut -f 2 -d "=" | tr -d "[[:space:]]"
+}
+CONFIG_WINDOW_PID_FUNCTIONS+=("window_get_pid_xprop_active")
+
+window_get_pid() {
+    declare -l window_pid
+    declare -l i
+
+    for (( i = 0; i < "${#CONFIG_WINDOW_PID_FUNCTIONS[@]}"; i++ )); do
+        [[ -n "${window_pid}" ]] && break
+
+        read -r window_pid < <(${CONFIG_WINDOW_PID_FUNCTIONS[$i]})
+    done
+
+    echo "${window_pid}"
+}
+
+echoerr() {
+    echo $@ >&2
+}
+
+
+process_get_childs_pgrep() {
+    pgrep -P "${1}"
+}
+CONFIG_PROCESS_CHILD_FUNCTIONS+=("process_get_childs_pgrep")
+
+process_get_childs_ppid() {
+    ps --ppid="${1}" --no-headers -o pid
+}
+CONFIG_PROCESS_CHILD_FUNCTIONS+=("process_get_childs_ppid")
+
+process_get_childs() {
+    process_get_childs_pgrep "${1}"
+}
+
+process_get_all_childs() {
+    declare -la processes
+    declare -l child
+    declare -l childs
+
+    while read -r child ; do
+        processes+=("${child}")
+        read -r childs < <(process_get_all_childs "${child}")
+        if [[ "${#childs[@]}" -gt 0 ]]; then
+            processes+=(${childs[@]})
+        fi
+    done < <(process_get_childs "${1}")
+
+    echo "${processes[@]}"
+}
+
+# ---
+
+while [[ -n "${1}" ]]; do
+    case "${1}" in
+        -p|--append-path)
+            CONFIG_APPEND_PATH=1
+            shift
+            ;;
+        -i|--dont-ignore-window-pid)
+            CONFIG_DONT_IGNORE_WINDOW_PID=1
+            shift
+            ;;
+        -C|--dont-cd)
+            CONFIG_DO_CHDIR_WINDOW_CWD=0
+            ;;
+        --)
+            shift
+            break;
+            ;;
+        *)
+            exit 1
+            ;;
+    esac
+done
+
+# ---
+
+declare window_pid
+read -r window_pid < <(window_get_pid)
+
+if [[ ! -d "/proc/${window_pid}" ]]; then
+    echoerr "Could not find window pid"
+    exit 1
+fi
+
+declare -a processes
+read -r childs < <(process_get_all_childs "${window_pid}")
+if [[ "${#childs[@]}" -gt 0 ]]; then
+  processes+=(${childs[@]})
+fi
+
+# usally not what you want if you use terminals
+# this way we get cwd from the child process, e.g. shell
+if [[ "${CONFIG_DONT_IGNORE_WINDOW_PID}" -gt 0 ]]; then
+  processes+=(${window_pid})
+fi
+
+# if window has no childs processes
+if [[ "${#processes[@]}" -ge 1 ]]; then
+  processes+=(${window_pid})
+fi
+
+declare window_cwd
+window_cwd="${HOME}"
+
+declare tmp_window_cwd
+for (( i = 0; i < "${#processes[@]}"; i++ )); do
+  read -r tmp_window_cwd < <(readlink "/proc/${processes[$i]}/cwd")
+
+  if [[ "${tmp_window_cwd}" != "${HOME}" && "${tmp_window_cwd}" != '~' && -n "${tmp_window_cwd}" ]]; then
+    window_cwd="${tmp_window_cwd}"
+    break
+  fi
+done
+
+declare program
+declare commandline
+if [[ "${#@}" -ge 1 ]]; then
+  program="${1}"
+  commandline="${@}"
+else
+  read -r program < <(readlink "/proc/${window_pid}/exe")
+  read -r commandline < <(tr "\0" " " < "/proc/${window_pid}/cmdline")
+fi
+
+# TODO seperate file
+case "${program##*/}" in
+    urxvt|urxvtc|urxvtcd|rxvt)
+        commandline+=" -cd ${window_cwd}"
+        ;;
+    termite)
+        commandline+=" -d ${window_cwd}"
+        ;;
+    terminology)
+        commandline+=" -d=${window_cwd}"
+        ;;
+    xterm|terminator)
+        commandline+=" -e \"cd ${window_cwd} && $SHELL\""
+        ;;
+esac
+
+if [[ "${CONFIG_APPEND_PATH}" -ge 1 ]]; then
+  commandline+=" ${window_cwd}"
+fi
+
+if [[ "${CONFIG_DO_CHDIR_WINDOW_CWD}" -ge 1 ]]; then
+  cd "${window_cwd}"
+fi
+
+eval "exec ${commandline}"
