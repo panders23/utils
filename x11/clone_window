@@ -113,7 +113,7 @@ if [[ "${#childs[@]}" -gt 0 ]]; then
   processes+=(${childs[@]})
 fi
 
-# usally not what you want if you use terminals
+# usually not what you want if you use terminals
 # this way we get cwd from the child process, e.g. shell
 if [[ "${CONFIG_DONT_IGNORE_WINDOW_PID}" -gt 0 ]]; then
   processes+=(${window_pid})
@@ -147,7 +147,7 @@ else
   read -r commandline < <(tr "\0" " " < "/proc/${window_pid}/cmdline")
 fi
 
-# TODO seperate file
+# TODO separate file
 case "${program##*/}" in
     urxvt|urxvtc|urxvtcd|rxvt)
         commandline+=" -cd ${window_cwd}"
