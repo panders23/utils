@@ -63,6 +63,11 @@ process_get_all_childs() {
 
     while read -r child ; do
         processes+=("${child}")
+
+        if [[ "$$" -eq "${child}" ]]; then
+            continue
+        fi
+
         read -r childs < <(process_get_all_childs "${child}")
         if [[ "${#childs[@]}" -gt 0 ]]; then
             processes+=(${childs[@]})
