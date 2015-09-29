@@ -136,7 +136,7 @@ declare tmp_window_cwd
 for (( i = 0; i < "${#processes[@]}"; i++ )); do
   read -r tmp_window_cwd < <(readlink "/proc/${processes[$i]}/cwd")
 
-  if [[ "${tmp_window_cwd}" != "${HOME}" && "${tmp_window_cwd}" != '~' && -n "${tmp_window_cwd}" ]]; then
+  if [[ "${tmp_window_cwd}" != "${HOME}" && "${tmp_window_cwd}" != '~' && -n "${tmp_window_cwd}" && !"${tmp_window_cwd}" =~ ^/proc ]]; then
     window_cwd="${tmp_window_cwd}"
     break
   fi
