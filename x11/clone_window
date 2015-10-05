@@ -155,16 +155,13 @@ fi
 # TODO separate file
 case "${program##*/}" in
     urxvt|urxvtc|urxvtcd|rxvt)
-        commandline+=" -cd ${window_cwd}"
+        commandline+=" -cd \"${window_cwd}\""
         ;;
     termite)
-        commandline+=" -d ${window_cwd}"
+        commandline+=" -d \"${window_cwd}\""
         ;;
     terminology)
-        commandline+=" -d=${window_cwd}"
-        ;;
-    xterm|terminator)
-        commandline+=" -e \"cd ${window_cwd} && $SHELL\""
+        commandline+=" -d=\"${window_cwd}\""
         ;;
 esac
 
