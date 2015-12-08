@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 declare -a CONFIG_WINDOW_PID_FUNCTIONS
-declare -a CONFIG_PROCESS_CHILD_FUNCTIONS
 
 CONFIG_APPEND_PATH=0
 CONFIG_DONT_IGNORE_WINDOW_PID=0
@@ -42,19 +41,17 @@ echoerr() {
 }
 
 
-process_get_childs_pgrep() {
+which pgrep &> /dev/null
+if [[ $? -eq 0 ]]; then
+process_get_childs() {
     pgrep -P "${1}"
 }
-CONFIG_PROCESS_CHILD_FUNCTIONS+=("process_get_childs_pgrep")
-
-process_get_childs_ppid() {
+else
+process_get_childs() {
     ps --ppid="${1}" --no-headers -o pid
 }
-CONFIG_PROCESS_CHILD_FUNCTIONS+=("process_get_childs_ppid")
+fi
 
-process_get_childs() {
-    process_get_childs_pgrep "${1}"
-}
 
 process_get_all_childs() {
     declare -la processes
