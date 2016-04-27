@@ -1,3 +1,4 @@
+# if you got multiple known_hosts files
 ssh_get_known_hosts() {
     local known_hosts_files=()
     local known_hosts=()
