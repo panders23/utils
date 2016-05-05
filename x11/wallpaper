@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+CONFIG_WALLPAPER_PATH=""
+
+program_exists() {
+    declare -l test_exists
+    read -r test_exists < <(which "${1}")
+    return [[ -n "${test_exists}" ]]
+}
+
+[[ -f ~/.config/wallpaper/config ]] && source ~/.config/wallpaper/config
+
+if [[ -z "${CONFIG_WALLPAPER_PATH}" ]]; then
+    read -r CONFIG_WALLPAPER_PATH < <(xdg-user-dir PICTURES)
+fi
+
+[[ -z "${CONFIG_WALLPAPER_PATH}" ]] && exit 1
+
+if program_exists nitrogen; then
+    read -r selected_image < <(find "${CONFIG_WALLPAPER_PATH}" -type f | shuf)
+    nitrogen --set-auto "${selected_image}"
+elif program_exists feh; then
+    feh --bg-scale -z -r "${CONFIG_WALLPAPER_PATH}"
+fi
