@@ -5,10 +5,14 @@ CONFIG_WALLPAPER_PATH=""
 program_exists() {
     declare -l test_exists
     read -r test_exists < <(which "${1}")
-    return [[ -n "${test_exists}" ]]
+
+    [[ -n "${test_exists}" ]] \
+        && return 0 \
+        || return 1
 }
 
-[[ -f ~/.config/wallpaper/config ]] && source ~/.config/wallpaper/config
+[[ -f "${HOME}/.config/wallpaper/config" ]] \
+    && source "${HOME}/.config/wallpaper/config"
 
 if [[ -z "${CONFIG_WALLPAPER_PATH}" ]]; then
     read -r CONFIG_WALLPAPER_PATH < <(xdg-user-dir PICTURES)
@@ -18,7 +22,7 @@ fi
 
 if program_exists nitrogen; then
     read -r selected_image < <(find "${CONFIG_WALLPAPER_PATH}" -type f | shuf)
-    nitrogen --set-auto "${selected_image}"
+    nitrogen --set-zoom-fill "${selected_image}"
 elif program_exists feh; then
     feh --bg-scale -z -r "${CONFIG_WALLPAPER_PATH}"
 fi
