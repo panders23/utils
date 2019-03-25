@@ -7,21 +7,35 @@ CONFIG_DONT_IGNORE_WINDOW_PID=0
 CONFIG_DO_CHDIR_WINDOW_CWD=1
 
 # ---
+# WAYLAND
+if [[ -n "${WAYLAND_DISPLAY}" ]] ; then
+    # SWAY
+    if [[ -n "${SWAYSOCK}" ]]; then
+        window_get_pid_sway_get_tree() {
+            swaymsg -t get_tree | jq '.. | (.nodes? // empty)[] | select(.focused==true) .pid'
+        }
+        CONFIG_WINDOW_PID_FUNCTIONS+=("window_get_pid_sway_get_tree")
+    fi
+fi
 
-window_get_pid_xdotool_focus() {
-    xdotool getwindowfocus getwindowpid
-}
-CONFIG_WINDOW_PID_FUNCTIONS+=("window_get_pid_xdotool_focus")
+# XORG
+if [[ -z "${WAYLAND_DISPLAY}" && -n "${DISPLAY}" ]]; then
+    window_get_pid_xdotool_focus() {
+        xdotool getwindowfocus getwindowpid
+    }
+    CONFIG_WINDOW_PID_FUNCTIONS+=("window_get_pid_xdotool_focus")
 
-window_get_pid_xdotool_active() {
-    xdotool getactivewindow getwindowpid
-}
-CONFIG_WINDOW_PID_FUNCTIONS+=("window_get_pid_xdotool_active")
+    window_get_pid_xdotool_active() {
+        xdotool getactivewindow getwindowpid
+    }
+    CONFIG_WINDOW_PID_FUNCTIONS+=("window_get_pid_xdotool_active")
 
-window_get_pid_xprop_active() {
-    xprop -id $(xprop -root _NET_ACTIVE_WINDOW | cut -f 5 -d ' ') _NET_WM_PID | cut -f 2 -d "=" | tr -d "[[:space:]]"
-}
-CONFIG_WINDOW_PID_FUNCTIONS+=("window_get_pid_xprop_active")
+    window_get_pid_xprop_active() {
+        xprop -id $(xprop -root _NET_ACTIVE_WINDOW | cut -f 5 -d ' ') _NET_WM_PID | cut -f 2 -d "=" | tr -d "[[:space:]]"
+    }
+    CONFIG_WINDOW_PID_FUNCTIONS+=("window_get_pid_xprop_active")
+fi
+
 
 window_get_pid() {
     declare -l window_pid
