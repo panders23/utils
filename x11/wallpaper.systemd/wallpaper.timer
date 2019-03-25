@@ -1,9 +1,0 @@
-[Unit]
-Description=User Timer for wallpaper 
-
-[Timer]
-OnUnitActiveSec=15m
-Unit=wallpaper.service
-
-[Install]
-WantedBy=default.target

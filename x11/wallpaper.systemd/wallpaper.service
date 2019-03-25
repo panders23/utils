@@ -1,9 +1,0 @@
-[Unit]
-Description=User service for wallpaper 
-
-[Service]
-Type=oneshot
-ExecStart=/bin/bash '$(which wallpaper)'
-
-[Install]
-WantedBy=default.target
