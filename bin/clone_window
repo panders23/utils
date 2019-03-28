@@ -19,7 +19,7 @@ if [[ -n "${WAYLAND_DISPLAY}" ]] ; then
 fi
 
 # XORG
-if [[ -z "${WAYLAND_DISPLAY}" && -n "${DISPLAY}" ]]; then
+if [[ -n "${DISPLAY}" ]]; then
     window_get_pid_xdotool_focus() {
         xdotool getwindowfocus getwindowpid
     }
@@ -42,9 +42,11 @@ window_get_pid() {
     declare -l i
 
     for (( i = 0; i < "${#CONFIG_WINDOW_PID_FUNCTIONS[@]}"; i++ )); do
-        [[ -n "${window_pid}" ]] && break
-
         read -r window_pid < <(${CONFIG_WINDOW_PID_FUNCTIONS[$i]})
+
+        if [[ -n "${window_pid}" && "${window_pid}" != "null" && "${window_pid}" -gt 0 ]]; then
+            break;
+        fi
     done
 
     echo "${window_pid}"
@@ -118,70 +120,73 @@ done
 declare window_pid
 read -r window_pid < <(window_get_pid)
 
-if [[ ! -d "/proc/${window_pid}" ]]; then
-    echoerr "Could not find window pid"
-    exit 1
-fi
-
-declare -a processes
-read -r childs < <(process_get_all_childs "${window_pid}")
-if [[ "${#childs[@]}" -gt 0 ]]; then
-  processes+=(${childs[@]})
-fi
-
-# usually not what you want if you use terminals
-# this way we get cwd from the child process, e.g. shell
-if [[ "${CONFIG_DONT_IGNORE_WINDOW_PID}" -gt 0 ]]; then
-  processes+=(${window_pid})
-fi
-
-# if window has no childs processes
-if [[ "${#processes[@]}" -ge 1 ]]; then
-  processes+=(${window_pid})
-fi
-
-declare window_cwd
-window_cwd="${HOME}"
-
-declare tmp_window_cwd
-for (( i = 0; i < "${#processes[@]}"; i++ )); do
-  read -r tmp_window_cwd < <(readlink "/proc/${processes[$i]}/cwd")
-
-  if [[ "${tmp_window_cwd}" != "${HOME}" && "${tmp_window_cwd}" != '~' && -n "${tmp_window_cwd}" && -d "${tmp_window_cwd}" ]]; then
-    window_cwd="${tmp_window_cwd}"
-    break
-  fi
-done
-
 declare program
 declare commandline
 if [[ "${#@}" -ge 1 ]]; then
-  program="${1}"
-  commandline="${@}"
-else
-  read -r program < <(readlink "/proc/${window_pid}/exe")
-  read -r commandline < <(tr "\0" " " < "/proc/${window_pid}/cmdline")
+    program="${1}"
+    commandline="${@}"
 fi
 
-# TODO separate file
-case "${program##*/}" in
-    urxvt|urxvtc|urxvtcd|rxvt)
-        commandline+=" -cd \"${window_cwd}\""
-        ;;
-    termite)
-        commandline+=" -d \"${window_cwd}\""
-        ;;
-    terminology)
-        commandline+=" -d=\"${window_cwd}\""
-        ;;
-esac
+if [[ -n "${window_pid}" ]]; then
+    if [[ ! -d "/proc/${window_pid}" ]]; then
+        echoerr "Could not find window pid"
+        exit 1
+    fi
 
-if [[ "${CONFIG_APPEND_PATH}" -ge 1 ]]; then
-  commandline+=" ${window_cwd}"
+    declare -a processes
+    read -r childs < <(process_get_all_childs "${window_pid}")
+    if [[ "${#childs[@]}" -gt 0 ]]; then
+      processes+=(${childs[@]})
+    fi
+
+    # usually not what you want if you use terminals
+    # this way we get cwd from the child process, e.g. shell
+    if [[ "${CONFIG_DONT_IGNORE_WINDOW_PID}" -gt 0 ]]; then
+      processes+=(${window_pid})
+    fi
+
+    # if window has no childs processes
+    if [[ "${#processes[@]}" -ge 1 ]]; then
+      processes+=(${window_pid})
+    fi
+
+    declare window_cwd
+    window_cwd="${HOME}"
+
+    declare tmp_window_cwd
+    for (( i = 0; i < "${#processes[@]}"; i++ )); do
+      read -r tmp_window_cwd < <(readlink "/proc/${processes[$i]}/cwd")
+
+      if [[ -n "${tmp_window_cwd}" && -d "${tmp_window_cwd}" && "${tmp_window_cwd}" != "${HOME}" && "${tmp_window_cwd}" != '~' ]]; then
+        window_cwd="${tmp_window_cwd}"
+        break
+      fi
+    done
+
+    read -r program < <(readlink "/proc/${window_pid}/exe")
+    read -r commandline < <(tr "\0" " " < "/proc/${window_pid}/cmdline")
+
+    case "${program##*/}" in
+        urxvt|urxvtc|urxvtcd|rxvt)
+            commandline+=" -cd \"${window_cwd}\""
+            ;;
+        termite)
+            commandline+=" -d \"${window_cwd}\""
+            ;;
+        terminology)
+            commandline+=" -d=\"${window_cwd}\""
+            ;;
+    esac
+
+    if [[ "${CONFIG_APPEND_PATH}" -ge 1 ]]; then
+      commandline+=" ${window_cwd}"
+    fi
+
+    if [[ "${CONFIG_DO_CHDIR_WINDOW_CWD}" -ge 1 ]]; then
+      cd "${window_cwd}"
+    fi
 fi
 
-if [[ "${CONFIG_DO_CHDIR_WINDOW_CWD}" -ge 1 ]]; then
-  cd "${window_cwd}"
+if [[ -n "${commandline}" ]]; then
+    eval "exec ${commandline}"
 fi
-
-eval "exec ${commandline}"
