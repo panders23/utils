@@ -30,12 +30,11 @@ if [[ -n "${DISPLAY}" ]]; then
     }
     CONFIG_WINDOW_PID_FUNCTIONS+=("window_get_pid_xdotool_active")
 
-    window_get_pid_xprop_active() {
-        xprop -id $(xprop -root _NET_ACTIVE_WINDOW | cut -f 5 -d ' ') _NET_WM_PID | cut -f 2 -d "=" | tr -d "[[:space:]]"
-    }
-    CONFIG_WINDOW_PID_FUNCTIONS+=("window_get_pid_xprop_active")
+    # window_get_pid_xprop_active() {
+    #     # xprop -id $(xprop -root _NET_ACTIVE_WINDOW | cut -f 5 -d ' ') _NET_WM_PID | cut -f 2 -d "=" | tr -d "[[:space:]]"
+    # }
+    # CONFIG_WINDOW_PID_FUNCTIONS+=("window_get_pid_xprop_active")
 fi
-
 
 window_get_pid() {
     declare -l window_pid
@@ -53,21 +52,18 @@ window_get_pid() {
 }
 
 echoerr() {
-    echo $@ >&2
+    echo "$@" >&2
 }
 
-
-which pgrep &> /dev/null
-if [[ $? -eq 0 ]]; then
-process_get_childs() {
-    pgrep -P "${1}"
-}
+if command -v pgrep &> /dev/null; then
+    process_get_childs() {
+        pgrep -P "${1}"
+    }
 else
-process_get_childs() {
-    ps --ppid="${1}" --no-headers -o pid
-}
+    process_get_childs() {
+        ps --ppid="${1}" --no-headers -o pid
+    }
 fi
-
 
 process_get_all_childs() {
     declare -la processes
@@ -124,7 +120,7 @@ declare program
 declare commandline
 if [[ "${#@}" -ge 1 ]]; then
     program="${1}"
-    commandline="${@}"
+    commandline="${*}"
 fi
 
 if [[ -n "${window_pid}" ]]; then
@@ -163,8 +159,10 @@ if [[ -n "${window_pid}" ]]; then
       fi
     done
 
-    read -r program < <(readlink "/proc/${window_pid}/exe")
-    read -r commandline < <(tr "\0" " " < "/proc/${window_pid}/cmdline")
+    if [[ -z "${commandline}" ]]; then
+        read -r program < <(readlink "/proc/${window_pid}/exe")
+        read -r commandline < <(tr "\0" " " < "/proc/${window_pid}/cmdline")
+    fi
 
     case "${program##*/}" in
         urxvt|urxvtc|urxvtcd|rxvt)
@@ -183,7 +181,7 @@ if [[ -n "${window_pid}" ]]; then
     fi
 
     if [[ "${CONFIG_DO_CHDIR_WINDOW_CWD}" -ge 1 ]]; then
-      cd "${window_cwd}"
+      cd "${window_cwd}" || echoerr "could not cd to directory ${window_cwd}"
     fi
 fi
 
