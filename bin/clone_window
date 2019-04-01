@@ -165,10 +165,16 @@ if [[ -n "${window_pid}" ]]; then
     fi
 
     case "${program##*/}" in
+        alacritty)
+            commandline+=" --working-directory \"${window_cwd}\""
+            ;;
         urxvt|urxvtc|urxvtcd|rxvt)
             commandline+=" -cd \"${window_cwd}\""
             ;;
         termite)
+            commandline+=" -d \"${window_cwd}\""
+            ;;
+        kitty)
             commandline+=" -d \"${window_cwd}\""
             ;;
         terminology)
